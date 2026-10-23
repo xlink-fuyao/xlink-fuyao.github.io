@@ -1,0 +1,278 @@
+# xlink
+
+> Use Fuyao Coding models in the coding-agent harnesses you already run — OpenCode, Claude Code, Codex CLI, DeepSeek Harness, Grok Build, Hermes, Pi Code, and Prime Agent. xlink injects Together settings for a single run so your normal tool configs stay untouched.
+
+xlink is an MIT-licensed CLI router. Install once, then launch your agent with short commands (`xcodex`, `xchatgpt`, `xclaude`, `xopencode`, `xdeepseek`, `xgrok`, `xhermes`, `xpi`, `xprime`). For Claude Code and Codex CLI it routes the agent's API traffic to Fuyao Coding through a local translation proxy; for OpenCode, DeepSeek Harness, Grok Build, Hermes, Pi Code, and Prime Agent it injects ephemeral per-run config. The installed binary keeps itself up to date automatically from xlink-fuyao.github.io.
+
+This is the LLM-readable documentation file for the project. If you are an AI agent asked to install, configure, or use xlink (headless or interactive), read this file first. It covers installation, configuration, every command, the available models, headless/agentic usage patterns, how to keep the tool up to date, and the routing architecture.
+
+- Project: https://github.com/Nutlope/xlink
+- Website: https://xlink-fuyao.github.io
+- Installer: https://xlink-fuyao.github.io/install.sh
+- Version manifest: https://xlink-fuyao.github.io/latest.json
+- README: https://github.com/Nutlope/xlink#readme
+- This file: https://xlink-fuyao.github.io/llms.txt
+
+## Install
+
+One command installs the `xlink`, `xclaude`, `xopencode`, `xcodex`, `xchatgpt`, `xdeepseek`, `xgrok`, `xhermes`, `xpi`, and `xprime` commands to `~/.xlink/bin/` and installs Bun for you if it isn't already present:
+
+```
+curl -fsSL https://xlink.xiaopeng.link/install.sh | bash
+```
+
+After install, restart your shell (or run the `export PATH=...` line it prints) so the commands are on PATH. The install:
+
+- Downloads the self-contained JS bundle to `~/.xlink/bin/xlink.js`.
+- Writes shell wrappers (`xlink`, `xcodex`, `xchatgpt`, `xclaude`, `xopencode`, `xdeepseek`, `xgrok`, `xhermes`, `xpi`, `xprime`) that run the bundle with `bun`.
+- Links them into a writable directory on your PATH.
+- Demand-installs DeepSeek Harness only after `deepseek`/`xdeepseek` is explicitly selected or invoked. Other missing agent CLIs are not installed automatically; xlink prints their official install command and exits.
+
+To verify: `xlink --version`.
+
+## Configure
+
+Before the first launch you need a Fuyao API key (get one at https://fuyao-v3.xiaopeng.link/):
+
+```
+xlink configure
+```
+
+This stores your Fuyao API key in `~/.xlink/` and optionally an Exa API key (https://exa.ai) that powers web-search emulation in Claude Code. Web search is optional — without it, searches return a clear "EXA_API_KEY not set" error instead of failing silently.
+
+You can also set the key non-interactively:
+
+```
+export FUYAO_API_KEY=...
+xlink configure        # stores it (skip prompts with the env present)
+```
+
+The API key is required to actually route traffic; the installer lets you skip it (press Enter) and add it later.
+
+To route model requests through a compatible credential proxy, set `FUYAO_BASE_URL` in the launcher environment. XLink appends `/v1` when needed and defaults to `http://fuyao-ai-gateway.xiaopeng.link/v1` when the variable is absent:
+
+```
+export FUYAO_API_KEY=phantom-key
+export FUYAO_BASE_URL=http://127.0.0.1:1234/together
+xlink codex
+```
+
+This applies to every coding harness. `FUYAO_BASE_URL` is intentionally not loaded from repository `.env` files.
+
+To disable XLink's anonymous analytics:
+
+```
+export XLINK_TELEMETRY_DISABLED=1
+```
+
+When set, XLink does not create analytics install state or send requests to its telemetry endpoint.
+
+## Commands
+
+Running `xlink` with no arguments opens an interactive launcher (requires a TTY) that lets you pick a tool. Run a tool directly with a subcommand:
+
+```
+xlink configure                      # set API keys
+xlink whoami                         # print your anonymous install id
+xlink --version | -v                 # print the version
+xlink help | --help | -h             # print this usage
+
+xlink codex [...]        # alias: xcodex   (Codex CLI)
+xlink claude [...]       # alias: xclaude  (Claude Code)
+xlink deepseek [...]     # alpha, alias: xdeepseek (DeepSeek Harness web UI)
+xlink grok [...]         # alias: xgrok    (Grok Build)
+xlink hermes [...]       # alias: xhermes  (Hermes Agent)
+xlink hermes desktop [...] # Hermes Desktop
+xlink pi [...]           # alias: xpi      (Pi Code)
+xlink prime [...]        # alias: xprime   (Prime Agent)
+xlink opencode [...]     # alias: xopencode (OpenCode)
+
+xlink chatgpt [--model <model>]   # alpha: ChatGPT Desktop (aliases: xchatgpt, codex-app)
+xlink chatgpt off                 # aliases: xchatgpt off, codex off, restore
+
+xlink daemon stop                   # stop it until the next daemon-backed command or login
+```
+
+Any arguments after the harness name are passed straight through to the underlying agent CLI. For example, `xcodex exec "fix the typo"` runs `codex exec` with xlink routing.
+
+Recognized xlink flags (parsed before the passthrough):
+
+- `--api-key <key>` — use this Fuyao API key for the run.
+- `--main <model>` / `--model <model>` — select the model for this run.
+- `--search <value>` — search setting (harness-specific).
+- `--slot <value>` — session slot selection.
+- `--json` — print machine-readable payloads where supported.
+- `--restore` — restore (used with `chatgpt`).
+
+### ChatGPT Desktop App (alpha)
+
+`xchatgpt` (short for `xlink chatgpt`) persistently patches the ChatGPT Desktop config so the desktop app routes through Together. Unlike the other CLI wrappers, this change stays active until you turn it off:
+
+```
+xchatgpt                                 # configure (patches config)
+xchatgpt off                             # disable and restore your OpenAI profile
+xlink --model <model> chatgpt     # use a specific model
+```
+
+Backups of your original config live under `~/.xlink/backup/codex-app/`.
+
+## Available Models
+
+xlink routes to a curated set of Fuyao Coding models. The default for every coding harness is Fuyao Coding.
+
+Serverless prices below are in USD per 1 million tokens and come from Together's authenticated `/v1/models` catalog, checked August 22, 2026. Cached input is billed at the lower rate when Together's automatic prompt cache matches a prefix; otherwise the standard input rate applies. Together may change these prices, so check the live catalog for billing-critical decisions.
+
+| Model | Together API id | Input | Output | Cached input |
+| --- | --- | ---: | ---: | ---: |
+| Fuyao Coding (default) | `fuyao-coding` | $0 | $0 | $0 |
+| Fuyao Work | `fuyao-work` | $0 | $0 | $0 |
+
+### Selecting a model (flag order matters)
+
+Put `--model` BEFORE the harness subcommand — xlink consumes it there and routes to that model. `--main` is an exact alias of `--model` (same flag, same slot, all harnesses); neither one is harness-specific, and neither works after the harness name.
+
+```
+xlink --model fuyao-work codex exec "task"
+xlink --model fuyao-work claude -p "task"
+xlink --main fuyao-coding claude -p "task"   # --main == --model; value matches alias OR id
+```
+
+Do NOT put `--model` after the harness (e.g. `xcodex --model X` or `xclaude --model X`). The short aliases expand to `xlink <harness> ...`, so the flag lands after the harness name, goes to the agent's passthrough, and is then stripped — it is silently ignored and the run uses the default (Fuyao Coding), not the model you asked for. Always use the long form with the flag first.
+
+Capabilities:
+
+- `fuyao-coding` — Fuyao Coding · default. Vision, 1M context, reasoning, function calling.
+- `fuyao-work` — Fuyao Work. Text-only, 512K context, reasoning, function calling.
+
+Vision-capable models accept image attachments directly. The current text-only models are Fuyao Work; harnesses with vision delegation use Fuyao Coding for image work.
+
+## Headless & agentic usage
+
+Claude Code, Codex CLI, and Grok Build run headlessly (no TTY), so you can delegate code changes to an AI agent from scripts, CI, or another orchestrating agent. Grok's headless form is `xgrok --output-format streaming-json --disable-web-search --no-memory --no-subagents -p "task"`.
+
+### The working invocation pattern
+
+Both wrappers spawn the agent pointed at the local Together proxy and pass your flags through to the underlying binary. Always close stdin and capture stderr. To run a non-default model, put `--model <id>` before the harness (see Models above).
+
+### Prefer native subagents for delegated xlink runs
+
+If you are an orchestrating agent running inside Claude Code, Codex, or another CLI that has its own native subagent/delegation tool, prefer this pattern for non-trivial xlink work:
+
+1. Spawn a native subagent first.
+2. Tell that subagent to run the needed `xlink` command itself (`xcodex`, `xclaude`, `xopencode`, `xgrok`, `xhermes`, `xpi`, or `xprime`) with a tight task, explicit files, `< /dev/null`, and the guardrails below.
+3. Have the subagent wait for the delegated xlink run, inspect its result/diff, and report only the useful summary back to you.
+
+Do this instead of having the main orchestrating agent call `xcodex`/`xclaude` directly for every delegated edit. It keeps the main agent's context and inference budget focused on coordination/review, lets the native subagent own the details of launching and monitoring xlink, and works especially well when Claude Code delegates to a subagent that then uses Codex through `xcodex`.
+
+Codex CLI — non-interactive `exec` (the `-s workspace-write` sandbox grants write access; `exec` never prompts interactively):
+
+```
+xlink codex exec -s workspace-write -C /abs/repo "<tight, single-concern task with explicit files + guardrails>" < /dev/null 2>&1
+```
+
+If the working directory isn't a git repo, codex refuses to start ("Not inside a trusted directory"); add `--skip-git-repo-check`, or run inside a git repo.
+
+Claude Code — print mode `-p` (runs once and exits). Add `--dangerously-skip-permissions` so a headless subagent never blocks on a permission prompt:
+
+```
+xlink claude -p "<tight, single-concern task with explicit files + guardrails>" --dangerously-skip-permissions --output-format json < /dev/null 2>&1
+```
+
+Run it in the background, health-check at ~60s, review the diff, run lint, then commit. One file or one concern per task gives the cleanest reviews.
+
+### Always close stdin: `< /dev/null`
+
+This is the single biggest footgun. When launched in the background with an open/inherited stdin and no TTY, the process prints `Reading additional input from stdin...` and blocks forever — it never starts the task and produces no edits.
+
+- **Workaround:** append `< /dev/null` to every invocation. With stdin closed it runs cleanly every time.
+- **Do not** treat the `Reading additional input from stdin...` line as a hang signal on its own — that line also prints on healthy `< /dev/null` runs (it reads EOF immediately and proceeds). The real hang signal is: that line is the **last** line AND the output line count stays frozen. Health checks should watch for a *frozen line count*, not the presence of the stdin message.
+
+### Health-check a launch, don't assume
+
+A hung/failed start and a legitimately-working task both look like "background process still running." Without tailing the log there's no way to tell in the first minute whether it connected. Adopt a scripted ~60s health check:
+
+- process alive, AND
+- the banner line `Routing Codex → Fuyao Coding` (or `Routing Claude Code → Fuyao Coding`) is present (confirms it connected, not hung pre-connection), AND
+- no `command not found` / startup error in the log, AND
+- output line count is still growing (not frozen).
+
+Kill and relaunch on a failed start.
+
+### One concern per task; keep taste on the orchestrator side
+
+Give explicit file lists and verbatim text for any creative content. Keep taste decisions (copy, design) on the human/orchestrator side and pass the exact text to insert. When told to touch only a named set of files, the agent respects the scope precisely and will flag (not silently fix) a file outside the scope that has the same issue — surface that gap for a human to decide.
+
+### Wait for done before reviewing or linting
+
+Do not lint or review mid-run. The agent rewrites files in passes and a file can be briefly malformed mid-edit (e.g., a stray `*/` mid-comment) that is correct by task end. Reviewing mid-run chases phantom errors. Wait for the done signal, then:
+
+1. Review the diff yourself.
+2. Re-run lint yourself (the agent self-verifies with lint and reports honestly, but the review step has caught real issues — e.g., a `server-only` import that would crash, or a 7th file needing the same fix).
+3. Commit.
+
+### Cost awareness
+
+Per-task cost varies a lot with how verbose the agent is. Mechanical, well-scoped changes are cheap (~$0.10); a single change that triggers verbose JSDoc + defensive guard code can cost ~10–20× more. To keep cost down: scope tasks tightly, and prefer a "match surrounding comment density; don't over-explain" instruction for small mechanical changes.
+
+### Summary of recommendations
+
+1. Always `< /dev/null`.
+2. One concern per task; give an explicit file list and verbatim text for creative content.
+3. 60s health check after launch; kill + relaunch on a failed start (watch for frozen line count).
+4. Never lint/review mid-run; wait for the done signal.
+5. Review the diff + re-run lint yourself before committing.
+6. To select a model, put `--model` (or its exact alias `--main`) before the harness subcommand — after the harness it is silently ignored and the default runs. The flag order is what matters, not which spelling you use.
+7. For Claude `-p`, pass `--dangerously-skip-permissions` so a headless subagent never blocks on a permission prompt. Codex `exec` is non-interactive by design; use `-s workspace-write` for edits and `--skip-git-repo-check` outside a git repo.
+8. If your current CLI has native subagents, delegate xlink launches to one of those subagents and let it return the result, instead of spending the main orchestrator's context on the full `xcodex`/`xclaude` run.
+
+## Keeping xlink up to date
+
+The installed binary self-updates automatically in the background. The check is throttled and bounded, never throws, and runs before argument parsing — so even `xlink help` keeps an install current. The update is pulled from https://xlink-fuyao.github.io/latest.json, which contains `version`, `url`, and `publishedAt`.
+
+To force a refresh, re-run the install one-liner:
+
+```
+curl -fsSL https://xlink-fuyao.github.io/install.sh | bash
+```
+
+You can check the installed version with `xlink --version` and compare it against the published manifest at https://xlink-fuyao.github.io/latest.json.
+
+## Architecture (how routing works)
+
+There are two harness families behind the supported tools:
+
+- **Proxied harnesses — Claude Code, Codex CLI.** `xclaude` and `xcodex` spawn a shared local daemon and route the agent's `/v1/*` traffic through it. The daemon translates the agent's native wire format (Anthropic Messages for Claude, OpenAI Responses for Codex) to Together's chat-completions API and back. Per run: it resolves the model, ensures the daemon, registers a session with your token, prints a banner, spawns the agent pointed at the local proxy, tracks cost, and deregisters on exit. Nothing is written to your real agent config — close it and your setup is exactly as it was.
+
+- **Spawned harnesses — OpenCode, DeepSeek Harness, Grok Build, Hermes, Pi Code, Prime Agent.** `xopencode`, `xdeepseek`, `xgrok`, `xhermes` (including `xhermes desktop`), `xpi`, and `xprime` spawn the agent binary directly. The binary talks to Together itself, using inline config (OpenCode), a credential-free per-launch `--patch` overlay (DeepSeek Harness alpha), a local metadata-only model catalog plus temporary auth isolation (Grok), a temporary standalone provider plugin in a credential-isolated home overlay (Hermes), a temporary `models.json` (Pi), or a credential-free provider extension activated only for the XLink launch (Prime Agent). DeepSeek Harness and Prime metadata remain under XLink's own home; API keys are runtime-only, and the harnesses' normal user configuration is untouched. No inference proxy is involved.
+
+The daemon is one persistent local process shared by all proxied sessions. If you ever need to stop it manually:
+
+```
+xlink daemon stop
+```
+
+This unloads the OS-supervised service so the always-restart policy does not immediately bring it
+back. The next daemon-backed XLink command, or the next login, starts it again.
+
+`xchatgpt` / `xlink chatgpt` (alpha) is the exception: it persistently patches ChatGPT Desktop config to route through Together (instead of per-run injection), with backups under `~/.xlink/backup/codex-app/`. Disable it and restore the previous profile with `xchatgpt off`.
+
+## Troubleshooting
+
+- **"No Fuyao API key found"** — run `xlink configure` or set `FUYAO_API_KEY`.
+- **A tool command is not found** — xlink does not install the agent CLIs for you. It prints the official install command (e.g. `npm install -g @openai/codex`) and the docs link when the tool is missing; install it, then re-run.
+- **Web search fails in Claude Code** — set an Exa API key via `xlink configure`. Without it, searches return a clear "EXA_API_KEY not set" error.
+- **Headless run hangs and produces no edits** — you forgot `< /dev/null`. Close stdin and relaunch; see the Headless usage section.
+- **Cost seems high for a small change** — the agent over-documented. Scope the task tighter and add a "don't over-explain" instruction.
+- **Grok web search or image generation is unavailable** — `xgrok` disables Grok's xAI-backed web search and Imagine image tools because Together's direct chat-completions route does not provide those xAI-specific API surfaces. Coding tools, workflows, image understanding through supported Together vision models, and Together model requests still work.
+- **Want your normal config back** — stop using the wrappers. No agent config was saved, so your OpenCode / Claude Code / Codex CLI / DeepSeek Harness / Grok Build / Hermes / Pi Code / Prime Agent setup is untouched. For ChatGPT Desktop, run `xchatgpt off`.
+
+## Links
+
+- [GitHub](https://github.com/Nutlope/xlink): source repository and issues
+- [README](https://github.com/Nutlope/xlink#readme): human-readable project overview
+- [Website](https://xlink-fuyao.github.io): landing page
+- [Install script](https://xlink-fuyao.github.io/install.sh): one-command installer (`curl -fsSL https://xlink-fuyao.github.io/install.sh | bash`)
+- [Version manifest](https://xlink-fuyao.github.io/latest.json): current published version and release timestamp
+- [This LLM docs file](https://xlink-fuyao.github.io/llms.txt): the file you are reading now
+- [Fuyao Coding API keys](https://fuyao-v3.xiaopeng.link): get a key to route traffic
+- [llms.txt specification](https://llmstxt.org): the convention this file follows
