@@ -9,9 +9,9 @@
 # Installs the xlink CLI as a Bun-target JS bundle at ~/.xlink/bin/xlink.js,
 # with an `xlink` launcher that runs it with `bun`, plus the `xclaude`,
 # `xopencode`, `xcodex`, `xchatgpt`, `xdeepseek`, `xgrok`, `xhermes`, `xpi`, and
-# `xprime` convenience wrappers. Installs Bun for the user if `bun` isn't on
-# PATH. The bundle is checked against the release manifest's sha256 and its own
-# `--version` before it replaces an existing installation.
+# `xprime` convenience wrappers. Installs the latest Bun for the user, or
+# upgrades an older one. The bundle is checked against the release manifest's
+# sha256 and its own `--version` before it replaces an existing installation.
 #
 # Environment:
 #   XLINK_ORIGIN      release origin to install from (default: the build's)
@@ -20,8 +20,8 @@
 #   XLINK_NO_LAUNCH=1 skip the offer to start xlink when the install finishes
 #   NO_COLOR=1        plain output
 #
-# After install, the CLI prompts once for a Fuyao API key on first use (Enter
-# skips — the key is optional) and keeps itself updated from the same origin.
+# After install, the CLI prompts once for a Fuyao API key on first use and
+# keeps itself updated from the same origin.
 
 set -euo pipefail
 
@@ -85,7 +85,25 @@ fi
 
 heading "Setting up xlink..."
 
-# --- 1. Ensure Bun is present (install it for the user if not) ----------------
+# --- 1. Ensure the latest Bun ---------------------------------------------------
+# xlink supports only the latest Bun release: install it when missing, upgrade
+# an older one, and stop if it is still behind (for example a Homebrew or npm
+# install that `bun upgrade` cannot update).
+latest_bun_version() {
+  curl --proto '=https' --proto-redir '=https' -fsSL \
+    https://api.github.com/repos/oven-sh/bun/releases/latest 2>/dev/null \
+    | tr -d '\n' \
+    | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"bun-v\([0-9][0-9A-Za-z.+-]*\)".*/\1/p' \
+    | head -n 1
+}
+# Exits non-zero when Bun at $1 is older than version $2.
+bun_is_at_least() {
+  "$1" --config=/dev/null --no-env-file -e \
+    'process.exit(Bun.semver.order(Bun.version, process.argv[1]) < 0 ? 1 : 0)' "$2" >/dev/null 2>&1
+}
+
+LATEST_BUN="$(latest_bun_version || true)"
+bun_current=0
 if ! command -v bun >/dev/null 2>&1; then
   if ! command -v unzip >/dev/null 2>&1; then
     err "Need unzip to install Bun. Install unzip, then re-run the xlink installer."
@@ -102,24 +120,34 @@ if ! command -v bun >/dev/null 2>&1; then
     err "Bun install finished but bun isn't on PATH. Open a new shell and re-run."
     exit 1
   fi
+  bun_current=1
 fi
 BUN_BIN="$(command -v bun)"
 # PATH can contain relative directories; the launcher must keep working after
 # the user changes directories. Keep the binary symlink itself intact.
 BUN_BIN="$(cd "$(dirname "$BUN_BIN")" && pwd)/$(basename "$BUN_BIN")"
-# The launcher runs Bun with --no-env-file (Bun 1.3.3+) so a project's .env in
-# the launch directory never reaches the harness or the proxy, and with an
-# empty --config so the directory's bunfig.toml preloads never run. Older Bun
-# accepts the unknown flag without disabling dotenv, so check the version.
-if ! "$BUN_BIN" --config=/dev/null --no-env-file -e '
-  const version = /^(\d+)\.(\d+)\.(\d+)/.exec(Bun.version);
-  if (!version) process.exit(1);
-  const [major, minor, patch] = version.slice(1).map(Number);
-  if (!(major > 1 || (major === 1 && (minor > 3 || (minor === 3 && patch >= 3))))) process.exit(1);
-' >/dev/null 2>&1; then
-  err "xlink needs Bun 1.3.3 or newer. Run 'bun upgrade' and re-run this installer."
+
+if [ "$bun_current" -eq 0 ]; then
+  if [ -z "$LATEST_BUN" ]; then
+    # The latest version is unknown, so let Bun check for itself.
+    "$BUN_BIN" upgrade >/dev/null 2>&1 && bun_current=1
+  elif ! bun_is_at_least "$BUN_BIN" "$LATEST_BUN"; then
+    info "Upgrading Bun $("$BUN_BIN" --version) → $LATEST_BUN…"
+    "$BUN_BIN" upgrade >/dev/null 2>&1 || true
+  fi
+fi
+if [ -n "$LATEST_BUN" ] && ! bun_is_at_least "$BUN_BIN" "$LATEST_BUN"; then
+  err "xlink needs the latest Bun ($LATEST_BUN), but $BUN_BIN is $("$BUN_BIN" --version)."
+  err "Upgrade it (bun upgrade, brew upgrade bun, or npm install -g bun@latest), then re-run."
+  exit 1
+elif [ -z "$LATEST_BUN" ] && [ "$bun_current" -eq 0 ]; then
+  err "Could not confirm that $BUN_BIN ($("$BUN_BIN" --version)) is the latest Bun."
+  err "Run 'bun upgrade' (or your package manager's upgrade), then re-run."
   exit 1
 fi
+# The launcher runs Bun with --no-env-file so a project's .env in the launch
+# directory never reaches the harness or the proxy, and with an empty --config
+# so the directory's bunfig.toml preloads never run.
 
 # --- 2. Download and verify the release ---------------------------------------
 mkdir -p "$BIN_DIR"
@@ -417,7 +445,7 @@ else
   esac
 fi
 info "      Shortcuts: ${COMMANDS#xlink }"
-info "      On first run, xlink asks for your Fuyao API key (Enter to skip)."
+info "      On first run, xlink asks for your Fuyao API key."
 printf "\n"
 
 launch_now=0
