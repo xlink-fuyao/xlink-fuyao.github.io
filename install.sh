@@ -285,7 +285,7 @@ remove_legacy_shadow_wrapper opencode
 remove_legacy_shadow_wrapper grok
 
 # --- 4. Expose the commands on PATH -------------------------------------------
-# Keep the bundle and managed wrappers together, while exposing commands from
+# Keep the bundle and managed wrappers fuyao, while exposing commands from
 # the conventional user bin directory. Never replace unrelated commands there.
 # Links that earlier installers made elsewhere on PATH still point at $BIN_DIR
 # and keep working.

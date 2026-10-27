@@ -1,6 +1,6 @@
 # xlink
 
-> Use Fuyao Coding models in the coding-agent harnesses you already run — OpenCode, Claude Code, Codex CLI, DeepSeek Harness, Grok Build, Hermes, Pi Code, and Prime Agent. xlink injects Together settings for a single run so your normal tool configs stay untouched.
+> Use Fuyao Coding models in the coding-agent harnesses you already run — OpenCode, Claude Code, Codex CLI, DeepSeek Harness, Grok Build, Hermes, Pi Code, and Prime Agent. xlink injects Fuyao settings for a single run so your normal tool configs stay untouched.
 
 xlink is an MIT-licensed CLI router. Install once, then launch your agent with short commands (`xcodex`, `xchatgpt`, `xclaude`, `xopencode`, `xdeepseek`, `xgrok`, `xhermes`, `xpi`, `xprime`). For Claude Code and Codex CLI it routes the agent's API traffic to Fuyao Coding through a local translation proxy; for OpenCode, DeepSeek Harness, Grok Build, Hermes, Pi Code, and Prime Agent it injects ephemeral per-run config. The installed binary keeps itself up to date automatically from xlink-fuyao.github.io.
 
@@ -53,7 +53,7 @@ To route model requests through a compatible credential proxy, set `FUYAO_BASE_U
 
 ```
 export FUYAO_API_KEY=phantom-key
-export FUYAO_BASE_URL=http://127.0.0.1:1234/together
+export FUYAO_BASE_URL=http://127.0.0.1:1234/fuyao
 xlink codex
 ```
 
@@ -106,7 +106,7 @@ Recognized xlink flags (parsed before the passthrough):
 
 ### ChatGPT Desktop App (alpha)
 
-`xchatgpt` (short for `xlink chatgpt`) persistently patches the ChatGPT Desktop config so the desktop app routes through Together. Unlike the other CLI wrappers, this change stays active until you turn it off:
+`xchatgpt` (short for `xlink chatgpt`) persistently patches the ChatGPT Desktop config so the desktop app routes through Fuyao. Unlike the other CLI wrappers, this change stays active until you turn it off:
 
 ```
 xchatgpt                                 # configure (patches config)
@@ -120,9 +120,9 @@ Backups of your original config live under `~/.xlink/backup/codex-app/`.
 
 xlink routes to a curated set of Fuyao Coding models. The default for every coding harness is Fuyao Coding.
 
-Serverless prices below are in USD per 1 million tokens and come from Together's authenticated `/v1/models` catalog, checked August 22, 2026. Cached input is billed at the lower rate when Together's automatic prompt cache matches a prefix; otherwise the standard input rate applies. Together may change these prices, so check the live catalog for billing-critical decisions.
+Serverless prices below are in USD per 1 million tokens and come from Fuyao's authenticated `/v1/models` catalog, checked August 22, 2026. Cached input is billed at the lower rate when Fuyao's automatic prompt cache matches a prefix; otherwise the standard input rate applies. Fuyao may change these prices, so check the live catalog for billing-critical decisions.
 
-| Model | Together API id | Input | Output | Cached input |
+| Model | Fuyao API id | Input | Output | Cached input |
 | --- | --- | ---: | ---: | ---: |
 | Fuyao Coding (default) | `fuyao-coding` | $0 | $0 | $0 |
 | Fuyao Work | `fuyao-work` | $0 | $0 | $0 |
@@ -152,7 +152,7 @@ Claude Code, Codex CLI, and Grok Build run headlessly (no TTY), so you can deleg
 
 ### The working invocation pattern
 
-Both wrappers spawn the agent pointed at the local Together proxy and pass your flags through to the underlying binary. Always close stdin and capture stderr. To run a non-default model, put `--model <id>` before the harness (see Models above).
+Both wrappers spawn the agent pointed at the local Fuyao proxy and pass your flags through to the underlying binary. Always close stdin and capture stderr. To run a non-default model, put `--model <id>` before the harness (see Models above).
 
 ### Prefer native subagents for delegated xlink runs
 
@@ -241,9 +241,9 @@ You can check the installed version with `xlink --version` and compare it agains
 
 There are two harness families behind the supported tools:
 
-- **Proxied harnesses — Claude Code, Codex CLI.** `xclaude` and `xcodex` spawn a shared local daemon and route the agent's `/v1/*` traffic through it. The daemon translates the agent's native wire format (Anthropic Messages for Claude, OpenAI Responses for Codex) to Together's chat-completions API and back. Per run: it resolves the model, ensures the daemon, registers a session with your token, prints a banner, spawns the agent pointed at the local proxy, tracks cost, and deregisters on exit. Nothing is written to your real agent config — close it and your setup is exactly as it was.
+- **Proxied harnesses — Claude Code, Codex CLI.** `xclaude` and `xcodex` spawn a shared local daemon and route the agent's `/v1/*` traffic through it. The daemon translates the agent's native wire format (Anthropic Messages for Claude, OpenAI Responses for Codex) to Fuyao's chat-completions API and back. Per run: it resolves the model, ensures the daemon, registers a session with your token, prints a banner, spawns the agent pointed at the local proxy, tracks cost, and deregisters on exit. Nothing is written to your real agent config — close it and your setup is exactly as it was.
 
-- **Spawned harnesses — OpenCode, DeepSeek Harness, Grok Build, Hermes, Pi Code, Prime Agent.** `xopencode`, `xdeepseek`, `xgrok`, `xhermes` (including `xhermes desktop`), `xpi`, and `xprime` spawn the agent binary directly. The binary talks to Together itself, using inline config (OpenCode), a credential-free per-launch `--patch` overlay (DeepSeek Harness alpha), a local metadata-only model catalog plus temporary auth isolation (Grok), a temporary standalone provider plugin in a credential-isolated home overlay (Hermes), a temporary `models.json` (Pi), or a credential-free provider extension activated only for the XLink launch (Prime Agent). DeepSeek Harness and Prime metadata remain under XLink's own home; API keys are runtime-only, and the harnesses' normal user configuration is untouched. No inference proxy is involved.
+- **Spawned harnesses — OpenCode, DeepSeek Harness, Grok Build, Hermes, Pi Code, Prime Agent.** `xopencode`, `xdeepseek`, `xgrok`, `xhermes` (including `xhermes desktop`), `xpi`, and `xprime` spawn the agent binary directly. The binary talks to Fuyao itself, using inline config (OpenCode), a credential-free per-launch `--patch` overlay (DeepSeek Harness alpha), a local metadata-only model catalog plus temporary auth isolation (Grok), a temporary standalone provider plugin in a credential-isolated home overlay (Hermes), a temporary `models.json` (Pi), or a credential-free provider extension activated only for the XLink launch (Prime Agent). DeepSeek Harness and Prime metadata remain under XLink's own home; API keys are runtime-only, and the harnesses' normal user configuration is untouched. No inference proxy is involved.
 
 The daemon is one persistent local process shared by all proxied sessions. If you ever need to stop it manually:
 
@@ -254,7 +254,7 @@ xlink daemon stop
 This unloads the OS-supervised service so the always-restart policy does not immediately bring it
 back. The next daemon-backed XLink command, or the next login, starts it again.
 
-`xchatgpt` / `xlink chatgpt` (alpha) is the exception: it persistently patches ChatGPT Desktop config to route through Together (instead of per-run injection), with backups under `~/.xlink/backup/codex-app/`. Disable it and restore the previous profile with `xchatgpt off`.
+`xchatgpt` / `xlink chatgpt` (alpha) is the exception: it persistently patches ChatGPT Desktop config to route through Fuyao (instead of per-run injection), with backups under `~/.xlink/backup/codex-app/`. Disable it and restore the previous profile with `xchatgpt off`.
 
 ## Troubleshooting
 
@@ -263,7 +263,7 @@ back. The next daemon-backed XLink command, or the next login, starts it again.
 - **Web search fails in Claude Code** — set an Exa API key via `xlink configure`. Without it, searches return a clear "EXA_API_KEY not set" error.
 - **Headless run hangs and produces no edits** — you forgot `< /dev/null`. Close stdin and relaunch; see the Headless usage section.
 - **Cost seems high for a small change** — the agent over-documented. Scope the task tighter and add a "don't over-explain" instruction.
-- **Grok web search or image generation is unavailable** — `xgrok` disables Grok's xAI-backed web search and Imagine image tools because Together's direct chat-completions route does not provide those xAI-specific API surfaces. Coding tools, workflows, image understanding through supported Together vision models, and Together model requests still work.
+- **Grok web search or image generation is unavailable** — `xgrok` disables Grok's xAI-backed web search and Imagine image tools because Fuyao's direct chat-completions route does not provide those xAI-specific API surfaces. Coding tools, workflows, image understanding through supported Fuyao vision models, and Fuyao model requests still work.
 - **Want your normal config back** — stop using the wrappers. No agent config was saved, so your OpenCode / Claude Code / Codex CLI / DeepSeek Harness / Grok Build / Hermes / Pi Code / Prime Agent setup is untouched. For ChatGPT Desktop, run `xchatgpt off`.
 
 ## Links

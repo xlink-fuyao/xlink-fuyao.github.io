@@ -1,6 +1,6 @@
 # xlink releases
 
-Release files for xlink v0.8.12, published by `scripts/deploy-github-pages.sh` in the xlink
+Release files for xlink v0.8.13, published by `scripts/deploy-github-pages.sh` in the xlink
 source repository. Do not edit by hand.
 
 ```bash
