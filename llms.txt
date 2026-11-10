@@ -126,14 +126,15 @@ Serverless prices below are in USD per 1 million tokens and come from Fuyao's au
 | --- | --- | ---: | ---: | ---: |
 | Fuyao Coding (default) | `fuyao-coding` | $0 | $0 | $0 |
 | Fuyao Work | `fuyao-work` | $0 | $0 | $0 |
+| Kimi K3.1 Pro | `kimi-k3.1-pro` | $0 | $0 | $0 |
 
 ### Selecting a model (flag order matters)
 
 Put `--model` BEFORE the harness subcommand — xlink consumes it there and routes to that model. `--main` is an exact alias of `--model` (same flag, same slot, all harnesses); neither one is harness-specific, and neither works after the harness name.
 
 ```
-xlink --model fuyao-work codex exec "task"
-xlink --model fuyao-work claude -p "task"
+xlink --model kimi-k3.1-pro codex exec "task"
+xlink --model kimi-k3.1-pro claude -p "task"
 xlink --main fuyao-coding claude -p "task"   # --main == --model; value matches alias OR id
 ```
 
@@ -143,6 +144,7 @@ Capabilities:
 
 - `fuyao-coding` — Fuyao Coding · default. Vision, 1M context, reasoning, function calling.
 - `fuyao-work` — Fuyao Work. Text-only, 512K context, reasoning, function calling.
+- `kimi-k3.1-pro` — Kimi K3.1 Pro. Vision, 1M context, reasoning, function calling.
 
 Vision-capable models accept image attachments directly. The current text-only models are Fuyao Work; harnesses with vision delegation use Fuyao Coding for image work.
 
